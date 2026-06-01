@@ -18,6 +18,7 @@ export default function CameraView({ geometry, modelFileName, onCapture, onBack 
   const [isTracking, setIsTracking] = useState(false)
   const [captureCount, setCaptureCount] = useState(0)
   const overlayCanvasRef = useRef(null)
+  const overlayRenderRef = useRef(null)
   const trackingIntervalRef = useRef(null)
   const capturesRef = useRef([]) // accumulate all captures while tracking
   const transformRef = useRef(transform) // mirror transform for use inside interval
@@ -174,9 +175,19 @@ export default function CameraView({ geometry, modelFileName, onCapture, onBack 
     captureCanvas.height = dimensions.height
     const ctx = captureCanvas.getContext('2d')
  
+    // Draw camera video frame
     ctx.drawImage(videoRef.current, 0, 0, dimensions.width, dimensions.height)
+ 
+    // Force a fresh WebGL render right before reading pixels (critical on mobile)
+    overlayRenderRef.current?.forceRender()
+ 
+    // Draw the overlay — always specify dest dimensions so DPR scaling is corrected
     if (overlayCanvasRef.current) {
-      ctx.drawImage(overlayCanvasRef.current, 0, 0)
+      ctx.drawImage(
+        overlayCanvasRef.current,
+        0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height, // src: full intrinsic pixels
+        0, 0, dimensions.width, dimensions.height,                              // dst: CSS pixel size
+      )
     }
  
     const imageBase64 = captureCanvas.toDataURL('image/png')
@@ -289,6 +300,7 @@ export default function CameraView({ geometry, modelFileName, onCapture, onBack 
             width={dimensions.width}
             height={dimensions.height}
             canvasRef={overlayCanvasRef}
+            renderRef={overlayRenderRef}
           />
         </div>
       )}
